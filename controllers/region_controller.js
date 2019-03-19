@@ -137,7 +137,7 @@ const deleteById = (req, res, next) => {
         where: {id: id}
     })
     .then(() => {
-        res.send(`Deleted Region ${id}`);
+        res.send(`Deleted region ${id}`);
     }).catch(next);
 }
 

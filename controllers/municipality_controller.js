@@ -1,9 +1,99 @@
 const db = require('../models/index')
+const utils = require('../helpers/utils');
 
 const Municipality = db.Municipality;
 
+
+// import csv
+const importcsv = async (req, res) => {
+    //------------------------------------------------------
+    const file = req.file ? req.file.path : null;
+    console.log('FILE', file);
+    if(!file) return ReE(res, { message: 'CSV file not found'}, 400);
+
+    const csv = require('../helpers/csv_validator/');
+
+    const headers  = {
+        code: '',
+        name: '',
+        provinceId: ''
+    };
+    
+    async function insert(json) {
+        let err, municipality;
+        [err, municipality] = await to(Municipality.bulkCreate(json));
+        if(err) return ReE(res, err, 500);
+
+        return ReS(res, {
+            message: 'Successfully imported CSV file',
+            data: municipality
+        }, 200);
+    }
+
+    async function validateJSON(json) {
+        insert(json);
+    }
+
+    function start() {
+        csv(file, headers).then( result => {
+            validateJSON(result);
+        }).catch(err => {
+            return ReE(res, {
+                message: 'Failed to import csv file.',
+                data: err
+            }, 400);
+        });
+    }
+
+    start();
+}
+
+// export csv
+const exportcsv = async (req, res) => {
+    let err, municipality;
+
+    [err, municipality] = await to(Municipality.findAll());
+    if(err) return ReE(res, err, 500);
+    if(!municipality) return ReE(res, {message: 'No data to download.'}, 400);
+ 
+    municipality = utils.clone(municipality);
+
+    const json2csv = require('json2csv').Parser;
+    const parser = new json2csv({encoding: 'utf-8', withBOM: true});
+    const csv = parser.parse(municipality);
+
+    res.setHeader('Content-disposition', 'attachment; filename=Municipality.csv');
+    res.set('Content-Type','text/csv');
+    // res.set('application/octet-stream', 'text/csv');
+    res.send(csv);
+}
+
+// pagination
+const getMunicipalityList = (req, res, next) => {
+    let limit = 10;
+    let offset = 0;
+    Municipality.findAndCountAll()
+    .then(data => {
+        let page = req.params.page;
+        let pages = Math.ceil(data.count / limit);
+            offset = limit * (page -1);
+        Municipality.findAll({
+            attributes: ['id','name','code','provinceId'],
+            limit: limit,
+            offset: offset,
+            $sort: { id: 1}
+        })
+        .then( municipalities => {
+            res.status(200).json({'result': municipalities, 'count':data.count, 'pages': pages});
+        });
+    })
+    .catch(err => {
+        res.status(500).send('Internal server error');
+    });
+}
+
 // get all municipality
-exports.getAll = (req, res, next) => {
+const getAll = (req, res, next) => {
     Municipality.findAll({
         paranoid: false
     }).then(municipalities => {
@@ -12,7 +102,7 @@ exports.getAll = (req, res, next) => {
 }
 
 // post a municipality
-exports.post = (req, res, next) => {
+const post = (req, res, next) => {
     Municipality.create(req.body)
     .then( municipality => {
         res.send(municipality);
@@ -20,7 +110,7 @@ exports.post = (req, res, next) => {
 }
 
 // find municipality by id
-exports.findById = (req, res, next) => {
+const findById = (req, res, next) => {
     let id = req.params.id;
     Municipality.findById(id)
     .then(municipality => {
@@ -33,7 +123,7 @@ exports.findById = (req, res, next) => {
 }
 
 // update a particular municipality
-exports.updateById = (req,res,next) => {
+const updateById = (req,res,next) => {
     Municipality.update({...req.body}, {where: {id: req.params.id}})
     .then(() => {
         res.send('Updated a municipality successfully.');
@@ -41,7 +131,7 @@ exports.updateById = (req,res,next) => {
 }
 
 // delete a municipality by id
-exports.deleteById = (req, res, next) => {
+const deleteById = (req, res, next) => {
     const id = req.params.id;
     Municipality.destroy({
         where: {id: id}
@@ -49,4 +139,15 @@ exports.deleteById = (req, res, next) => {
     .then(() => {
         res.send('Deleted a municipality!');
     }).catch(next);
+}
+
+module.exports = {
+    importcsv,
+    exportcsv,
+    getMunicipalityList,
+    getAll,
+    post,
+    findById,
+    updateById,
+    deleteById
 }
