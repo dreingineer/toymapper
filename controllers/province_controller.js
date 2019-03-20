@@ -1,5 +1,7 @@
 const db = require('../models/index');
 const utils = require('../helpers/utils');
+const Sequelize = require('sequelize');
+const Op = Sequelize.Op;
 
 // const path = require('path');
 const Province = db.Province;
@@ -113,14 +115,6 @@ const post = (req, res, next) => {
     }).catch(next);
 }
 
-// bulk create a province
-// bulkcreate = (req, res) => {
-//     const provinceList = req.body;
-//     Province.bulkCreate(provinceList).then( newProvinces => {
-//         res.json(newProvinces);
-//     });
-// }
-
 // find province by id
 const findById = (req, res, next) => {
     let id = req.params.id;
@@ -153,6 +147,28 @@ const deleteById = (req, res, next) => {
     }).catch(next);
 }
 
+// search like
+const search = async (req, res) => {
+    res.setHeader('Content-type', 'application/json');
+    const {
+        id,
+        name,
+        code,
+        createdAt,
+        updatedAt,
+        deletedAt,
+        regionId
+    } = req.query;
+    [err, province] = await to(Province.findAll({
+        where: {
+            [Op.or]: [{'id':id},{'name':name},{'code':code},{'createdAt':createdAt},
+            {'updatedAt':updatedAt},{'deletedAt':deletedAt},{'regionId':regionId}]
+        }
+    }));
+
+    return ReS(res, {'Province': province});
+}
+
 module.exports = {
     importcsv,
     exportcsv,
@@ -161,5 +177,6 @@ module.exports = {
     post,
     findById,
     updateById,
-    deleteById
+    deleteById,
+    search
 }

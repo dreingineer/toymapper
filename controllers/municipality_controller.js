@@ -1,8 +1,9 @@
 const db = require('../models/index')
 const utils = require('../helpers/utils');
+const Sequelize = require('sequelize');
+const Op = Sequelize.Op;
 
 const Municipality = db.Municipality;
-
 
 // import csv
 const importcsv = async (req, res) => {
@@ -141,6 +142,28 @@ const deleteById = (req, res, next) => {
     }).catch(next);
 }
 
+// search
+const search = async (req, res) => {
+    res.setHeader('Content-type', 'application/json');
+    const {
+        id,
+        name,
+        code,
+        createdAt,
+        updatedAt,
+        deletedAt,
+        provinceId
+    } = req.query;
+    [err, municipality] = await to(Municipality.findAll({
+        where: {
+            [Op.or] : [{'id':id},{'name':name},{'code':code},{'createdAt':createdAt},
+                    {'updatedAt':updatedAt},{'deletedAt':deletedAt},{'provinceId':provinceId}]
+        }
+    }));
+
+    return ReS(res, {'Municipality': municipality});
+}
+
 module.exports = {
     importcsv,
     exportcsv,
@@ -149,5 +172,6 @@ module.exports = {
     post,
     findById,
     updateById,
-    deleteById
+    deleteById,
+    search
 }

@@ -1,5 +1,7 @@
 const db = require('../models/index');
 const utils = require('../helpers/utils');
+const Sequelize = require('sequelize');
+const Op = Sequelize.Op;
 
 const Region = db.Region;
 // const Province = db.Province;
@@ -68,7 +70,7 @@ const exportcsv = async (req, res) => {
 }
 
 // Pagination
-const getRegionList = (req, res, next) => {
+const getRegionList = (req, res) => {
     let limit = 10;
     let offset = 0;
     Region.findAndCountAll()
@@ -141,6 +143,27 @@ const deleteById = (req, res, next) => {
     }).catch(next);
 }
 
+// search region
+const search = async (req, res) => {
+    res.setHeader('Content-type','application/json');
+    const {
+        id,
+        name,
+        code,
+        createdAt,
+        updatedAt,
+        deletedAt
+    } = req.query;
+    [err, region] = await to(Region.findAll({
+        where: {
+            [Op.or]: [{'id':id},{'name':name},{'code':code},{'createdAt':createdAt},
+                    {'updatedAt':updatedAt},{'deletedAt':deletedAt}]
+        }
+    }));
+
+    return ReS(res, {'Region': region});
+}
+
 module.exports = {
     importcsv,
     exportcsv,
@@ -149,5 +172,6 @@ module.exports = {
     post,
     findById,
     updateById,
-    deleteById
+    deleteById,
+    search
 }
