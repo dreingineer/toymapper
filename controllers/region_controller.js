@@ -2,6 +2,7 @@ const db = require('../models/index');
 const utils = require('../helpers/utils');
 const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
+const sorter = require('../helpers/sorter');
 
 const Region = db.Region;
 // const Province = db.Province;
@@ -145,24 +146,82 @@ const deleteById = (req, res, next) => {
 
 // search region
 const search = async (req, res) => {
-    res.setHeader('Content-type','application/json');
+    // search radagast version
+    // res.setHeader('Content-type','application/json');
+    // const {
+    //     id,
+    //     name,
+    //     code,
+    //     createdAt,
+    //     updatedAt,
+    //     deletedAt
+    // } = req.query;
+    // [err, region] = await to(Region.findAll({
+    //     where: {
+    //         [Op.or]: [{'id':id},{'name':name},{'code':code},{'createdAt':createdAt},
+    //                 {'updatedAt':updatedAt},{'deletedAt':deletedAt}]
+    //     }
+    // }));
+
+    // return ReS(res, {'Region': region});
+
+    // search v2 own version
     const {
         id,
         name,
-        code,
-        createdAt,
-        updatedAt,
-        deletedAt
+        code
     } = req.query;
-    [err, region] = await to(Region.findAll({
+    [err, regions] = await to(Region.findAll({
+        attributes: [
+            [db.sequelize.fn('concat',db.sequelize.col('id'),',', db.sequelize.col('name'),',',db.sequelize.col('code')), 'Results: ']
+        ],
         where: {
-            [Op.or]: [{'id':id},{'name':name},{'code':code},{'createdAt':createdAt},
-                    {'updatedAt':updatedAt},{'deletedAt':deletedAt}]
-        }
+            [Op.or]: [
+                {id: {[Op.like]: '%'+id+'%'}},
+                {name: {[Op.like]: '%'+name+'%'}},
+                {code: {[Op.like]: '%'+code+'%'}}
+            ]
+        },
+        paranoid: false,
+        limit: 10
     }));
+    if(err) return ReE(res, err, 500);
+    return ReS(res, {
+        message: 'Searched: ',
+        data: regions
+    }, 200);
+};
 
-    return ReS(res, {'Region': region});
-}
+// filter regions
+const filter = async (req, res) => {
+    let reqQuery = req.query;
+    let reqQuery_Sort = req.query.sortBy;
+    let condition = {};
+    let sort = [];
+
+    if(Object.keys(reqQuery).length > 0) {
+        if(reqQuery_Sort) {
+            sort = await sorter.convertToArrSort(reqQuery_Sort);
+            delete reqQuery.sortBy;
+        }
+        condition = reqQuery;
+    }
+
+    Region.findAll({
+        attributes: [
+            [db.sequelize.fn('concat', db.sequelize.col('id'),',', db.sequelize.col('name'),',', db.sequelize.col('code')), 'Filter Result(s):']
+        ],
+        where: condition,
+        order: sort,
+        paranoid: false
+    })
+    .then( regions => {
+        res.send(regions);
+    })
+    .catch( err => {
+        console.log(err);
+    });
+};
 
 module.exports = {
     importcsv,
@@ -173,5 +232,6 @@ module.exports = {
     findById,
     updateById,
     deleteById,
-    search
+    search,
+    filter
 }

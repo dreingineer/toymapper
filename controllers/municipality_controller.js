@@ -2,6 +2,7 @@ const db = require('../models/index')
 const utils = require('../helpers/utils');
 const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
+const sorter = require('../helpers/sorter');
 
 const Municipality = db.Municipality;
 
@@ -142,27 +143,86 @@ const deleteById = (req, res, next) => {
     }).catch(next);
 }
 
-// search
+// search municipality
 const search = async (req, res) => {
-    res.setHeader('Content-type', 'application/json');
+    // res.setHeader('Content-type', 'application/json');
+    // const {
+    //     id,
+    //     name,
+    //     code,
+    //     createdAt,
+    //     updatedAt,
+    //     deletedAt,
+    //     provinceId
+    // } = req.query;
+    // [err, municipality] = await to(Municipality.findAll({
+    //     where: {
+    //         [Op.or] : [{'id':id},{'name':name},{'code':code},{'createdAt':createdAt},
+    //                 {'updatedAt':updatedAt},{'deletedAt':deletedAt},{'provinceId':provinceId}]
+    //     }
+    // }));
+
+    // return ReS(res, {'Municipality': municipality});
+
+    // search v2 own version
     const {
         id,
         name,
         code,
-        createdAt,
-        updatedAt,
-        deletedAt,
         provinceId
     } = req.query;
-    [err, municipality] = await to(Municipality.findAll({
+    [err, municipalities] = await to(Municipality.fundAll({
+        attributes: [
+            [db.sequelize.fn('concat', db.sequelize.col('id'),',', db.sequelize.col('name'),',', db.sequelize.col('code'),',', db.sequelize.col('provinceId')), 'Result(s): ']
+        ],
         where: {
-            [Op.or] : [{'id':id},{'name':name},{'code':code},{'createdAt':createdAt},
-                    {'updatedAt':updatedAt},{'deletedAt':deletedAt},{'provinceId':provinceId}]
-        }
+            [Op.or]: [
+                {id: {[Op.like]: '%'+id+'%'}},
+                {name: {[Op.like]: '%'+name+'%'}},
+                {code: {[Op.like]: '%'+code+'%'}},
+                {provinceId: {[Op.like]: '%'+provinceId+'%'}}
+            ]
+        },
+        paranoid: false,
+        limit: 10
     }));
+    if(err) return ReE(res, err, 500);
+    return ReS(res, {
+        message: 'Searched: ',
+        data: municipalities
+    }, 200);
+};
 
-    return ReS(res, {'Municipality': municipality});
-}
+// filter municipalities
+const filter = async (req, res) => {
+    let reqQuery = req.query;
+    let reqQuery_Sort = req.query.sortBy;
+    let condition = {};
+    let sort = [];
+
+    if(Object.keys(reqQuery).length > 0) {
+        if(reqQuery_Sort) {
+            sort = await sorter.converToArrSort(reqQuery_Sort);
+            delete reqQuery.sortBy;
+        }
+        condition = reqQuery;
+    }
+
+    Municipality.findAll({
+        attributes: [
+            [db.sequelize.fn('concat', db.sequelize.col('id'),',', db.sequelize.col('name'),',', db.sequelize.col('code'),',', db.sequelize.col('provinceId')), 'Filter Result(s): ']
+        ],
+        where: condition,
+        order: sort,
+        paranoid: false
+    })
+    .then( municipalities => {
+        res.send(municipalities);
+    })
+    .catch( err => {
+        console.log(err);
+    });
+};
 
 module.exports = {
     importcsv,
@@ -173,5 +233,6 @@ module.exports = {
     findById,
     updateById,
     deleteById,
-    search
+    search,
+    filter
 }

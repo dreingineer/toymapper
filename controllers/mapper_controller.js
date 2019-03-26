@@ -17,5 +17,3 @@ exports.getLocs = (req, res, next) => {
         res.send({Regions: municipalities});
     }).catch(next);
 }
-
-
